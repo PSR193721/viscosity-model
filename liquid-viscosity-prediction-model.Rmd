@@ -5,8 +5,42 @@ output: html_notebook
 
 # Liquid Viscosity of Hydrocarbon Prediction Model
 
-```{r}
+<p>Introductory text here.</p>
 
+## Setup
+<p>Start by loading in the libraries that will be useful.</p>
+```{r}
+library(tidyverse)
+library(car)
+library(lmtest)
 ```
 
+<p>Now load in the data that we want to work with. We will start with Ethane.</p>
+
+```{r}
+ethane_tbl = as_tibble(read.csv("data/ethane-temp-viscosity.csv"))
+attach(ethane_tbl)
+df_working = ethane_tbl %>% 
+  select(Temp, Exp, Calc)
+
+attach(df_working)
+detach(ethane_tbl)
+
+View(df_working)
+```
+
+## Visualization
+<p>Now that we have imported our data and selected just the variables we want to work with, we can get some quick visualizations of the data.</p>
+```{r}
+df_working %>% 
+  ggplot(aes(x=Temp)) +
+  geom_point(aes(y=Exp, color="Experimental")) +
+  geom_line(aes(y=Exp, color="Experimental")) +
+  geom_point(aes(y=Calc, color="Calculated")) +
+  geom_line(aes(y=Calc, color="Calculated")) +
+  theme_bw() +
+  theme(legend.position="right") +
+  labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture") +
+  scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399"))
+```
 
