@@ -1,9 +1,7 @@
 ---
-title: "Liquid Viscosity Notebook"
+title: "Liquid Viscosity of Hydrocarbon Prediction Model"
 output: html_notebook
 ---
-
-# Liquid Viscosity of Hydrocarbon Prediction Model
 
 <p>Introductory text here.</p>
 
@@ -15,7 +13,7 @@ library(car)
 library(lmtest)
 ```
 
-<p>Now load in the data that we want to work with. We will start with Ethane.</p>
+<p>Now load in the data that we want to work with. We will use ethane to test our regression model, so we'll load it now.</p>
 
 ```{r}
 ethane_tbl = as_tibble(read.csv("data/ethane-temp-viscosity.csv"))
@@ -25,43 +23,114 @@ df_working = ethane_tbl %>%
 
 attach(df_working)
 detach(ethane_tbl)
-
-View(df_working)
 ```
 
-## Visualization
-<p>Now that we have imported our data and selected just the variables we want to work with, we can get some quick visualizations of the data.</p>
+## Model Setup
+<p>Now we need to create the data set that we'll us to determine our regression coefficients. The goal is to reproduce the coefficients published by <em>Van Velzen et al</em>. We need to extract the published values for $NE$ and $T_0$ from the appendices. Then, those data will be used to run a few different polynomial regression models on the data. The regression models will all use a simply monomial basis in a Vandermonde matrix.</p>
+
 ```{r}
-df_working %>% 
+NE_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
+       11.04, 11.99, 12.99, 13.98, 15.02, 16.00, 17.01, 18.01, 19.00, 19.98)
+
+T0 = c(57.60, 95.57, 133.41, 160.20, 182.48, 207.09, 232.53, 251.71, 272.12, 288.37, 
+       305.01, 318.78, 332.10, 344.21, 355.92, 366.11, 375.90, 385.00, 393.54, 401.67)
+
+B_exp = c(114.14, 156.60, 222.67, 265.84, 313.66, 362.79, 436.73, 473.70, 525.56, 558.61,
+      605.50, 631.63, 664.10, 689.85, 718.51, 738.30, 757.88, 777.40, 793.62, 811.29)
+
+df_raw = data.frame(NE_exp, T0, B_exp)
+
+N = NE_exp
+N2 = N^2
+N3 = N * N2
+N4 = N * N3
+```
+<p>Perform regressions to determine the coefficients for $T_0$.</p>
+```{r}
+fit_quadratic_T0 = lm(T0 ~ N + N2, data = df_raw)
+summary(fit_quadratic_T0)
+
+fit_cubic_T0 = lm(T0 ~ N + N2 + N3, data = df_raw)
+summary(fit_cubic_T0)
+
+fit_quartic_T0 = lm(T0 ~ N + N2 + N3 + N4, data = df_raw)
+summary(fit_quartic_T0)
+```
+### Notes
+<p>Testing different polynomial regressions, the cubic fit is the best. The $R^2$ values for all flavours were very high. The quartic fit is redundant, the extra term does not contribute anything to the fit. Give that the $R^2$ value for the cubic model is 1, this is no surprise at all.<p>
+<p>The coefficients for the cubic model are:</p>
+<p>$\beta_0 = 28.859$, $\beta_1 = 37.439$, $\beta_2 = -1.3547$, $\beta_3 = 0.02076$</p>
+<p>These coefficients reproduce those published by <em>Van Velzen et al.</em> in Eq. 7 (pg 7).</p>
+
+```{r}
+coef(fit_cubic_T0)
+```
+<p>Perform regressions to determine the coefficients for $B$.</p>
+
+```{r}
+fit_quadratic_B = lm(B_exp ~ N + N2, data = df_raw)
+summary(fit_quadratic_B)
+
+fit_cubic_B = lm(B_exp ~ N + N2 + N3, data = df_raw)
+summary(fit_cubic_B)
+
+fit_quartic_B = lm(B_exp ~ N + N2 + N3 + N4, data = df_raw)
+summary(fit_quartic_B)
+```
+```{r}
+coef(fit_cubic_B)
+```
+
+## Sanity Checking the Model 
+<p>Now that we have reproduced the published coefficients, we can compare our results against the experimental results published by the authors.</p>
+<p>First, we need to define some helper functions that will aid in calculations.</p>
+
+```{r}
+T0_calc <- function(coeffs, N) {
+  T0_approx = coeffs[1] + coeffs[2]*N + coeffs[3]*N^2 + coeffs[4]*N^3
+  return (T0_approx)
+}
+
+B_calc <- function(N) {
+  B_approx = 24.79 + 66.885*N - 1.3173*N^2 - 0.00377*N^3
+  return (B_approx)
+}
+
+viscosity_calc <- function(T0, B, Temperature) {
+  log_visc = B*(1/Temperature - 1/T0)
+  return(exp(log_visc))
+}
+
+```
+
+
+
+
+```{r}
+T_coeffs = coef(fit_cubic_T0)
+
+T0_ethane = round(T0_calc(T_coeffs, 2), 2)
+B_ethane = round(B_calc(2), 2)
+
+viscosity_calc(T0_ethane, B_ethane, -170)
+
+
+ethane_tbl = ethane_tbl %>% 
+  mutate(CalcTest = viscosity_calc(T0_ethane, B_ethane, ethane_tbl$Temp))
+
+ethane_tbl %>% 
   ggplot(aes(x=Temp)) +
   geom_point(aes(y=Exp, color="Experimental")) +
   geom_line(aes(y=Exp, color="Experimental")) +
-  geom_point(aes(y=Calc, color="Calculated")) +
-  geom_line(aes(y=Calc, color="Calculated")) +
+  geom_point(aes(y=CalcTest, color="Calculated")) +
+  geom_line(aes(y=CalcTest, color="Calculated")) +
   theme_bw() +
   theme(legend.position="right") +
   labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture") +
   scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399"))
 ```
-```{r}
-NE_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
-       11.04, 11.99, 12.99, 13.98, 15.02, 16.00, 17.01, 18.01, 19.00, 19.98)
-T0 = c(57.60, 95.57, 133.41, 160.20, 182.48, 207.09, 232.53, 251.71, 272.12, 288.37, 
-       305.01, 318.78, 332.10, 344.21, 355.92, 366.11, 375.90, 385.00, 393.54, 401.67)
-
-df_raw = data.frame(NE_exp, T0)
-
-N = NE_exp
-N2 = N^2
-N3 = N * N2
-
-fit = lm(T0 ~ N + N2 + N3, data = df_raw)
-summary(fit)
-```
 
 ```{r}
-fit2 = lm(log(Exp) ~ Temp, data = df_working)
-summary(fit2)
-predict(fit2, data.frame(Temp = (c(0))),)
+T0_approx = 1.009 + betas[1]*df_working$Temp + betas[2]*df_working$Temp + betas[3]*df_working$Temp
 ```
 
