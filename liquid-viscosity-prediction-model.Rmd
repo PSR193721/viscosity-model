@@ -43,4 +43,25 @@ df_working %>%
   labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture") +
   scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399"))
 ```
+```{r}
+NE_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
+       11.04, 11.99, 12.99, 13.98, 15.02, 16.00, 17.01, 18.01, 19.00, 19.98)
+T0 = c(57.60, 95.57, 133.41, 160.20, 182.48, 207.09, 232.53, 251.71, 272.12, 288.37, 
+       305.01, 318.78, 332.10, 344.21, 355.92, 366.11, 375.90, 385.00, 393.54, 401.67)
+
+df_raw = data.frame(NE_exp, T0)
+
+N = NE_exp
+N2 = N^2
+N3 = N * N2
+
+fit = lm(T0 ~ N + N2 + N3, data = df_raw)
+summary(fit)
+```
+
+```{r}
+fit2 = lm(log(Exp) ~ Temp, data = df_working)
+summary(fit2)
+predict(fit2, data.frame(Temp = (c(0))),)
+```
 
