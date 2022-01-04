@@ -22,8 +22,6 @@ viscosity_calc <- function(T0, B, Temperature) {
   return(10^(log_visc))
 }
 
-ethane_tbl = as_tibble(read.csv("data/ethane-temp-viscosity.csv"))
-
 N_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
           11.04, 11.99, 12.99, 13.98, 15.02, 16.00, 17.01, 18.01, 19.00, 19.98)
 
@@ -49,14 +47,49 @@ summary(fit_cubic_B)
 T_coeffs = coef(fit_cubic_T0)
 B_coeffs = coef(fit_cubic_B)
 
-# generate the constants for ethane 
-T0_ethane = T0_calc(T_coeffs, 2)
-B_ethane = B_calc(B_coeffs,2)
+for (i in 2:5) {
+  filename = paste0("data/",i,"-temp-viscosity.csv")
+  alkane_tbl = as_tibble(read.csv(filename))
+  
+  # generate the constants for the current alkane 
+  T0_alkane = T0_calc(T_coeffs, i)
+  B_alkane = B_calc(B_coeffs,i)
+  
+  # Add a new column with temps in Kelvin for use in calculations
+  alkane_tbl = alkane_tbl %>% 
+    mutate(TempK = alkane_tbl$Temp + KELVIN)
+  
+  # Compute viscosity
+  alkane_tbl = alkane_tbl %>% 
+    mutate(CalcTest = viscosity_calc(T0_alkane, B_alkane, alkane_tbl$TempK))
+  
+  alkane_tbl %>% 
+    ggplot(aes(x=Temp)) +
+    geom_point(aes(y=Exp, color="Experimental")) +
+    geom_line(aes(y=Exp, color="Experimental")) +
+    geom_point(aes(y=Calc, color="Calc Published")) +
+    geom_line(aes(y=Calc, color="Calc Published")) +
+    geom_point(aes(y=CalcTest, color="Calculated")) +
+    geom_line(aes(y=CalcTest, color="Calculated")) +
+    theme_bw() +
+    theme(legend.position="right") +
+    labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Alkane v. Temperture (C)") +
+    scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500"))
+  
+}
 
-# Add a new column with temps in Kelvin for use in calculations
-ethane_tbl = ethane_tbl %>% 
-  mutate(TempK = ethane_tbl$Temp + KELVIN)
+alkane_tbl %>% 
+  ggplot(aes(x=Temp)) +
+  geom_point(aes(y=Exp, color="Experimental")) +
+  geom_line(aes(y=Exp, color="Experimental")) +
+  geom_point(aes(y=Calc, color="Calc Published")) +
+  geom_line(aes(y=Calc, color="Calc Published")) +
+  geom_point(aes(y=CalcTest, color="Calculated"), alpha=0.5) +
+  geom_line(aes(y=CalcTest, color="Calculated"), alpha=0.5) +
+  theme_bw() +
+  theme(legend.position="right") +
+  labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Alkane v. Temperture (C)") +
+  scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500"))
 
-# Compute viscosity
-ethane_tbl = ethane_tbl %>% 
-  mutate(CalcTest = viscosity_calc(T0_ethane, B_ethane, ethane_tbl$TempK))
+
+

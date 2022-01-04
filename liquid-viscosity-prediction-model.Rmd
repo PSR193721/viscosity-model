@@ -15,18 +15,6 @@ library(car)
 library(lmtest)
 ```
 
-<p>Now load in the data that we want to work with. We will use ethane to test our regression model, so we'll load it now.</p>
-
-```{r}
-ethane_tbl = as_tibble(read.csv("data/ethane-temp-viscosity.csv"))
-attach(ethane_tbl)
-df_working = ethane_tbl %>% 
-  select(Temp, Exp, Calc)
-
-attach(df_working)
-detach(ethane_tbl)
-```
-
 ## Model Setup
 <p>Now we need to create the data set that we'll us to determine our regression coefficients. The goal is to reproduce the coefficients published by <em>Van Velzen et al</em>. We need to extract the published values for $N_E$ and $T_0$ from the appendices. Then, those data will be used to run a few different polynomial regression models on the data. The regression models will all use a simply monomial basis in a Vandermonde matrix.</p>
 
@@ -117,30 +105,40 @@ viscosity_calc <- function(T0, B, Temperature) {
 T_coeffs = coef(fit_cubic_T0)
 B_coeffs = coef(fit_cubic_B)
 
-# generate the constants for ethane 
-T0_ethane = round(T0_calc(T_coeffs, 2), 2)
-B_ethane = round(B_calc(B_coeffs,2), 2)
+alkane_names = c("Ethane", "Propane", "Butane", "Pentane", "Hexane", "Heptane", "Octane", "Nonane", "Decane")
 
-# Add a new column with temps in Kelvin for use in calculations
-ethane_tbl = ethane_tbl %>% 
-  mutate(TempK = ethane_tbl$Temp + 273.15)
-
-# Compute viscosity
-ethane_tbl = ethane_tbl %>% 
-  mutate(CalcTest = viscosity_calc(T0_ethane, B_ethane, ethane_tbl$TempK))
-
-ethane_tbl %>% 
-  ggplot(aes(x=Temp)) +
-  geom_point(aes(y=Exp, color="Experimental")) +
-  geom_line(aes(y=Exp, color="Experimental")) +
-  geom_point(aes(y=Calc, color="Calc Published")) +
-  geom_line(aes(y=Calc, color="Calc Published")) +
-  geom_point(aes(y=CalcTest, color="Calculated")) +
-  geom_line(aes(y=CalcTest, color="Calculated")) +
-  theme_bw() +
-  theme(legend.position="right") +
-  labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture (C)") +
-  scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500"))
+for (i in 2:10) {
+  filename = paste0("data/",i,"-temp-viscosity.csv")
+  alkane_tbl = as_tibble(read.csv(filename))
+  
+  # generate the constants for the current alkane 
+  T0_alkane = T0_calc(T_coeffs, i)
+  B_alkane = B_calc(B_coeffs,i)
+  
+  # Add a new column with temps in Kelvin for use in calculations
+  alkane_tbl = alkane_tbl %>% 
+    mutate(TempK = alkane_tbl$Temp + KELVIN)
+  
+  # Compute viscosity
+  alkane_tbl = alkane_tbl %>% 
+    mutate(CalcTest = viscosity_calc(T0_alkane, B_alkane, alkane_tbl$TempK))
+  
+  plot_title = paste0("Viscosity of ", alkane_names[i-1], " v. Temperture (C)") 
+  
+  print(alkane_tbl %>% 
+    ggplot(aes(x=Temp)) +
+    geom_point(aes(y=Exp, color="Experimental")) +
+    geom_line(aes(y=Exp, color="Experimental")) +
+    geom_point(aes(y=Calc, color="Calc Published")) +
+    geom_line(aes(y=Calc, color="Calc Published")) +
+    geom_point(aes(y=CalcTest, color="Calculated")) +
+    geom_line(aes(y=CalcTest, color="Calculated")) +
+    theme_bw() +
+    theme(legend.position="right") +
+    labs(x="Temperature (C)", y="Viscosity", title=plot_title) +
+    scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500")))
+  
+}
 ```
 
 
