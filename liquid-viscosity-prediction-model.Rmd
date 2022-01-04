@@ -26,10 +26,10 @@ detach(ethane_tbl)
 ```
 
 ## Model Setup
-<p>Now we need to create the data set that we'll us to determine our regression coefficients. The goal is to reproduce the coefficients published by <em>Van Velzen et al</em>. We need to extract the published values for $NE$ and $T_0$ from the appendices. Then, those data will be used to run a few different polynomial regression models on the data. The regression models will all use a simply monomial basis in a Vandermonde matrix.</p>
+<p>Now we need to create the data set that we'll us to determine our regression coefficients. The goal is to reproduce the coefficients published by <em>Van Velzen et al</em>. We need to extract the published values for $N_E$ and $T_0$ from the appendices. Then, those data will be used to run a few different polynomial regression models on the data. The regression models will all use a simply monomial basis in a Vandermonde matrix.</p>
 
 ```{r}
-NE_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
+N_exp = c(0.79, 1.91, 3.13, 4.07, 4.91, 5.91, 7.04, 7.97, 9.05, 9.99, 
        11.04, 11.99, 12.99, 13.98, 15.02, 16.00, 17.01, 18.01, 19.00, 19.98)
 
 T0 = c(57.60, 95.57, 133.41, 160.20, 182.48, 207.09, 232.53, 251.71, 272.12, 288.37, 
@@ -38,22 +38,22 @@ T0 = c(57.60, 95.57, 133.41, 160.20, 182.48, 207.09, 232.53, 251.71, 272.12, 288
 B_exp = c(114.14, 156.60, 222.67, 265.84, 313.66, 362.79, 436.73, 473.70, 525.56, 558.61,
       605.50, 631.63, 664.10, 689.85, 718.51, 738.30, 757.88, 777.40, 793.62, 811.29)
 
-df_raw = data.frame(NE_exp, T0, B_exp)
+df_raw = data.frame(N_exp, T0, B_exp)
 
-N = NE_exp
+N = N_exp
 N2 = N^2
 N3 = N * N2
 N4 = N * N3
 ```
 <p>Perform regressions to determine the coefficients for $T_0$.</p>
 ```{r}
-fit_quadratic_T0 = lm(T0 ~ N + N2, data = df_raw)
+fit_quadratic_T0 = lm(T0 ~ N_exp + I(N_exp^2), data = df_raw)
 summary(fit_quadratic_T0)
 
-fit_cubic_T0 = lm(T0 ~ N + N2 + N3, data = df_raw)
+fit_cubic_T0 = lm(T0 ~ N_exp + I(N_exp^2) + I(N_exp^3), data = df_raw)
 summary(fit_cubic_T0)
 
-fit_quartic_T0 = lm(T0 ~ N + N2 + N3 + N4, data = df_raw)
+fit_quartic_T0 = lm(T0 ~ N_exp + I(N_exp^2) + I(N_exp^3) + I(N_exp^4), data = df_raw)
 summary(fit_quartic_T0)
 ```
 ### Notes
@@ -68,18 +68,20 @@ coef(fit_cubic_T0)
 <p>Perform regressions to determine the coefficients for $B$.</p>
 
 ```{r}
-fit_quadratic_B = lm(B_exp ~ N + N2, data = df_raw)
+fit_quadratic_B = lm(B_exp ~ N_exp + I(N_exp^2), data = df_raw)
 summary(fit_quadratic_B)
 
-fit_cubic_B = lm(B_exp ~ N + N2 + N3, data = df_raw)
+fit_cubic_B = lm(B_exp ~ N_exp + I(N_exp^2) + I(N_exp^3), data = df_raw)
 summary(fit_cubic_B)
 
-fit_quartic_B = lm(B_exp ~ N + N2 + N3 + N4, data = df_raw)
+fit_quartic_B = lm(B_exp ~ N_exp + I(N_exp^2) + I(N_exp^3) + I(N_exp^4), data = df_raw)
 summary(fit_quartic_B)
 ```
 ```{r}
 coef(fit_cubic_B)
 ```
+
+<p>The B regression coefficients do not match those published by <em>Van Velzen et al.</em> but they do produce a better fit and more accurate approximations of the viscosity of ethane over the given temperature range (the boiling point of ethane is $-88.5^\circ C$).</p>
 
 ## Sanity Checking the Model 
 <p>Now that we have reproduced the published coefficients, we can compare our results against the experimental results published by the authors.</p>
@@ -91,46 +93,52 @@ T0_calc <- function(coeffs, N) {
   return (T0_approx)
 }
 
-B_calc <- function(N) {
-  B_approx = 24.79 + 66.885*N - 1.3173*N^2 - 0.00377*N^3
+B_calc <- function(coeffs, N) {
+  B_approx = coeffs[1] + coeffs[2]*N + coeffs[3]*N^2  + coeffs[4]*N^3
   return (B_approx)
 }
 
 viscosity_calc <- function(T0, B, Temperature) {
   log_visc = B*(1/Temperature - 1/T0)
-  return(exp(log_visc))
+  # The log in the de Guzman eqn is base 10.
+  return(10^(log_visc))
 }
 
 ```
 
-
-
+#### Viscosity Function: De Guzman - Andrade
+<p>Once the regression coefficients have been determined, we can use them to calculate values of viscosity v. temperature. The equation that is used for this is Eq 6 (page 7), the De Guzman-Andrade equation.</p>
+<p>$log(\eta_L) = B\biggl[\frac{1}{T} - \frac{1}{T_0} \biggr]$</p>
+<p>Note that the log in the above equation is base 10, not base e and the temperatures must be in the Kelvin scale NOT Celsius.</p>
 
 ```{r}
 T_coeffs = coef(fit_cubic_T0)
+B_coeffs = coef(fit_cubic_B)
 
+# generate the constants for ethane 
 T0_ethane = round(T0_calc(T_coeffs, 2), 2)
-B_ethane = round(B_calc(2), 2)
+B_ethane = round(B_calc(B_coeffs,2), 2)
 
-viscosity_calc(T0_ethane, B_ethane, -170)
-
-
+# Add a new column with temps in Kelvin for use in calculations
 ethane_tbl = ethane_tbl %>% 
-  mutate(CalcTest = viscosity_calc(T0_ethane, B_ethane, ethane_tbl$Temp))
+  mutate(TempK = ethane_tbl$Temp + 273.15)
+
+# Compute viscosity
+ethane_tbl = ethane_tbl %>% 
+  mutate(CalcTest = viscosity_calc(T0_ethane, B_ethane, ethane_tbl$TempK))
 
 ethane_tbl %>% 
   ggplot(aes(x=Temp)) +
   geom_point(aes(y=Exp, color="Experimental")) +
   geom_line(aes(y=Exp, color="Experimental")) +
+  geom_point(aes(y=Calc, color="Calc Published")) +
+  geom_line(aes(y=Calc, color="Calc Published")) +
   geom_point(aes(y=CalcTest, color="Calculated")) +
   geom_line(aes(y=CalcTest, color="Calculated")) +
   theme_bw() +
   theme(legend.position="right") +
-  labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture") +
-  scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399"))
+  labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Ethane v. Temperture (C)") +
+  scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500"))
 ```
 
-```{r}
-T0_approx = 1.009 + betas[1]*df_working$Temp + betas[2]*df_working$Temp + betas[3]*df_working$Temp
-```
 
