@@ -1,6 +1,8 @@
 ---
 title: "Liquid Viscosity of Hydrocarbon Prediction Model"
-output: html_notebook
+output:
+  html_notebook: default
+  pdf_document: default
 ---
 
 <p>Introductory text here.</p>
