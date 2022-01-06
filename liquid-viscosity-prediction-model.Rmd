@@ -105,11 +105,11 @@ viscosity_calc <- function(T0, B, Temperature) {
 T_coeffs = coef(fit_cubic_T0)
 B_coeffs = coef(fit_cubic_B)
 
-alkane_names = c("Ethane", "Propane", "Butane", "Pentane", "Hexane", "Heptane", "Octane", "Nonane", "Decane")
+alkane_names = c("Methane","Ethane", "Propane", "Butane", "Pentane", "Hexane", "Heptane", "Octane", "Nonane", "Decane")
 
-for (i in 2:10) {
+for (i in 1:10) {
   filename = paste0("data/",i,"-temp-viscosity.csv")
-  alkane_tbl = as_tibble(read.csv(filename))
+  alkane_tbl = read_csv(filename, col_names = TRUE)
   
   # generate the constants for the current alkane 
   T0_alkane = T0_calc(T_coeffs, i)
@@ -123,7 +123,7 @@ for (i in 2:10) {
   alkane_tbl = alkane_tbl %>% 
     mutate(CalcTest = viscosity_calc(T0_alkane, B_alkane, alkane_tbl$TempK))
   
-  plot_title = paste0("Viscosity of ", alkane_names[i-1], " v. Temperture (C)") 
+  plot_title = paste0("Viscosity of ", alkane_names[i], " v. Temperture (C)") 
   
   print(alkane_tbl %>% 
     ggplot(aes(x=Temp)) +
