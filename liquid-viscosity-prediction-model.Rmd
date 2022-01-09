@@ -105,9 +105,10 @@ viscosity_calc <- function(T0, B, Temperature) {
 T_coeffs = coef(fit_cubic_T0)
 B_coeffs = coef(fit_cubic_B)
 
-alkane_names = c("Methane","Ethane", "Propane", "Butane", "Pentane", "Hexane", "Heptane", "Octane", "Nonane", "Decane")
+alkane_names = c("Methane","Ethane", "Propane", "Butane", "Pentane", "Hexane", "Heptane", "Octane", "Nonane", "Decane",
+                 "Undecane", "Dodecane", "Tridecane", "Tetradecane", "Pentadecane")
 
-for (i in 1:10) {
+for (i in 1:15) {
   filename = paste0("data/",i,"-temp-viscosity.csv")
   alkane_tbl = read_csv(filename, col_names = TRUE)
   
@@ -141,4 +142,22 @@ for (i in 1:10) {
 }
 ```
 
+```{r}
+filename = paste0("data/",2,"-temp-viscosity.csv")
+ethane_tbl = read_csv(filename, col_names = TRUE)
 
+
+# Add a new column with temps in Kelvin for use in calculations
+ethane_tbl = ethane_tbl %>% 
+  mutate(TempK = ethane_tbl$Temp + KELVIN)
+
+
+fit = lm(log10(ethane_tbl$Exp) ~ ethane_tbl$TempK)
+summary(fit)
+plot(log10(ethane_tbl$Exp) ~ ethane_tbl$TempK, ylab='log of viscosity', xlab='Temp (K)')
+abline(fit)
+```
+### TODO:
+1.) inverse of temp diff for methane
+2.) higher order fits (higher order for bigger molecules)
+3.) plot fits for N > 10 alkanes

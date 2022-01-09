@@ -6,13 +6,11 @@ KELVIN = 273.15
 
 T0_calc <- function(coeffs, N) {
   T0_approx = coeffs[1] + coeffs[2]*N + coeffs[3]*N^2 + coeffs[4]*N^3
-  T0_approx = round(T0_approx, 2)
   return (T0_approx)
 }
 
 B_calc <- function(coeffs, N) {
   B_approx = coeffs[1] + coeffs[2]*N + coeffs[3]*N^2  + coeffs[4]*N^3
-  B_approx = round(B_approx, 2)
   return (B_approx)
 }
 
@@ -47,35 +45,47 @@ summary(fit_cubic_B)
 T_coeffs = coef(fit_cubic_T0)
 B_coeffs = coef(fit_cubic_B)
 
-for (i in 2:5) {
+#########################
+### TEST BED FOR N>10 ###
+#########################
+
+filename = paste0("data/",11,"-temp-viscosity.csv")
+colnames <- c('Temp','Exp','Calc','Molecule')
+alkane_tbl = read_csv(filename, col_names = colnames)
+
+par(mfrow=c(3,2))
+for (i in 11:15) {
+  filename = paste0("data/",i,"-temp-viscosity-raw.csv")
+ 
+  alkane_tbl = read_csv(filename, col_names = colnames)
+  
+  # # generate the constants for the current alkane 
+  # T0_alkane = T0_calc(T_coeffs, i)
+  # B_alkane = B_calc(B_coeffs,i)
+  # 
+  # # Add a new column with temps in Kelvin for use in calculations
+  # alkane_tbl = alkane_tbl %>% 
+  #   mutate(TempK = alkane_tbl$Temp + KELVIN)
+  # 
+  # # Compute viscosity
+  # alkane_tbl = alkane_tbl %>% 
+  #   mutate(CalcTest = viscosity_calc(T0_alkane, B_alkane, alkane_tbl$TempK))
+  # 
+  # print(alkane_tbl %>% 
+  #   ggplot(aes(x=Temp)) +
+  #   geom_point(aes(y=Exp, color="Experimental")) +
+  #   geom_line(aes(y=Exp, color="Experimental")) +
+  #   geom_point(aes(y=Calc, color="Calc Published")) +
+  #   geom_line(aes(y=Calc, color="Calc Published")) +
+  #   geom_point(aes(y=CalcTest, color="Calculated")) +
+  #   geom_line(aes(y=CalcTest, color="Calculated")) +
+  #   theme_bw() +
+  #   theme(legend.position="right") +
+  #   labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Alkane v. Temperture (C)") +
+  #   scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500")))
+  
   filename = paste0("data/",i,"-temp-viscosity.csv")
-  alkane_tbl = as_tibble(read.csv(filename))
-  
-  # generate the constants for the current alkane 
-  T0_alkane = T0_calc(T_coeffs, i)
-  B_alkane = B_calc(B_coeffs,i)
-  
-  # Add a new column with temps in Kelvin for use in calculations
-  alkane_tbl = alkane_tbl %>% 
-    mutate(TempK = alkane_tbl$Temp + KELVIN)
-  
-  # Compute viscosity
-  alkane_tbl = alkane_tbl %>% 
-    mutate(CalcTest = viscosity_calc(T0_alkane, B_alkane, alkane_tbl$TempK))
-  
-  alkane_tbl %>% 
-    ggplot(aes(x=Temp)) +
-    geom_point(aes(y=Exp, color="Experimental")) +
-    geom_line(aes(y=Exp, color="Experimental")) +
-    geom_point(aes(y=Calc, color="Calc Published")) +
-    geom_line(aes(y=Calc, color="Calc Published")) +
-    geom_point(aes(y=CalcTest, color="Calculated")) +
-    geom_line(aes(y=CalcTest, color="Calculated")) +
-    theme_bw() +
-    theme(legend.position="right") +
-    labs(x="Temperature (C)", y="Viscosity", title="Viscosity of Alkane v. Temperture (C)") +
-    scale_color_manual(name="Viscosity Curves", values = c("Experimental"="#000000","Calculated"="#993399", "Calc Published"="#ff4500"))
-  
+  write.csv(alkane_tbl, filename)
 }
 
 alkane_tbl %>% 
